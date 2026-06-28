@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python *)",
+      "Bash(.claude/skills/engineering-loop/scripts/start-engineering-loop.sh)",
+      "Bash(.claude/skills/engineering-loop/scripts/loop-status.sh)",
+      "Bash(.claude/skills/engineering-loop/scripts/update-engineering-loop-state.sh)",
+      "Bash(.claude/skills/engineering-loop/scripts/update-review-disposition-template.sh)",
+      "Bash(.claude/hooks/engineering-loop-stop.sh)",
+      "Write(.claude/engineering-loop-state.json)",
+      "Edit(.claude/engineering-loop-state.json)",
+      "Write(.claude/engineering-loop-review-disposition.json)",
+      "Edit(.claude/engineering-loop-review-disposition.json)"
+    ]
+  }
+}

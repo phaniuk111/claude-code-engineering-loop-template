@@ -1,0 +1,23 @@
+{
+  "language": "python",
+  "max_iterations": 3,
+  "required_agents": {
+    "explore": ["Explore"],
+    "architecture": ["architect-reviewer"],
+    "implementation": ["python-pro", "backend-developer", "frontend-developer", "fullstack-developer", "devops-engineer"],
+    "security_review": ["security-auditor"],
+    "testing": ["test-automator"],
+    "code_review": ["code-reviewer"],
+    "operations": ["devops-engineer"]
+  },
+  "test_command_patterns": [
+    "pytest",
+    "python -m pytest",
+    "uv run pytest",
+    "poetry run pytest",
+    "tox",
+    "nox",
+    "make test",
+    "unittest"
+  ]
+}

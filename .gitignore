@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.claude/engineering-loop-baseline.sha
+.claude/engineering-loop-commands.jsonl
+.claude/engineering-loop-edits.jsonl
+.claude/engineering-loop-events.jsonl
+.claude/engineering-loop-review-disposition.json
+.claude/engineering-loop-run-id
+.claude/engineering-loop-state.json

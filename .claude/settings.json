@@ -1,0 +1,196 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/pre-tool-use/block-dangerous-commands.sh",
+            "timeout": 5,
+            "statusMessage": "Checking for dangerous commands"
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|MultiEdit|Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/pre-tool-use/protect-sensitive-files.sh",
+            "timeout": 5,
+            "statusMessage": "Protecting sensitive files"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/remind-engineering-loop.sh",
+            "timeout": 5,
+            "statusMessage": "Loading engineering loop reminder"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/log-subagent-stop.sh",
+            "timeout": 10,
+            "statusMessage": "Recording subagent evidence"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/log-edit-tool.sh",
+            "timeout": 10,
+            "statusMessage": "Recording edit evidence"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/post-tool-use/ruff-format.sh",
+            "timeout": 10,
+            "statusMessage": "Auto-formatting Python with Ruff"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/log-edit-tool.sh",
+            "timeout": 10,
+            "statusMessage": "Recording write evidence"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/post-tool-use/ruff-format.sh",
+            "timeout": 10,
+            "statusMessage": "Auto-formatting Python with Ruff"
+          }
+        ]
+      },
+      {
+        "matcher": "MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/log-edit-tool.sh",
+            "timeout": 10,
+            "statusMessage": "Recording multiedit evidence"
+          },
+          {
+            "type": "command",
+            "command": ".claude/hooks/post-tool-use/ruff-format.sh",
+            "timeout": 10,
+            "statusMessage": "Auto-formatting Python with Ruff"
+          }
+        ]
+      },
+      {
+        "matcher": "NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/log-edit-tool.sh",
+            "timeout": 10,
+            "statusMessage": "Recording edit evidence"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/log-bash-tool.sh",
+            "timeout": 10,
+            "statusMessage": "Recording command evidence"
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/log-edit-tool.sh",
+            "timeout": 10,
+            "statusMessage": "Recording failed edit evidence"
+          }
+        ]
+      },
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/log-edit-tool.sh",
+            "timeout": 10,
+            "statusMessage": "Recording failed write evidence"
+          }
+        ]
+      },
+      {
+        "matcher": "MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/log-edit-tool.sh",
+            "timeout": 10,
+            "statusMessage": "Recording failed multiedit evidence"
+          }
+        ]
+      },
+      {
+        "matcher": "NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/log-edit-tool.sh",
+            "timeout": 10,
+            "statusMessage": "Recording failed edit evidence"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/log-bash-tool.sh",
+            "timeout": 10,
+            "statusMessage": "Recording failed command evidence"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/engineering-loop-stop.sh",
+            "timeout": 10,
+            "statusMessage": "Checking mandatory engineering loop"
+          }
+        ]
+      }
+    ]
+  }
+}
