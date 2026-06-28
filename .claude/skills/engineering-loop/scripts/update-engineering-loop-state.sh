@@ -9,16 +9,28 @@ subagent_log=".claude/engineering-loop-events.jsonl"
 command_log=".claude/engineering-loop-commands.jsonl"
 stop_hook=".claude/hooks/engineering-loop-stop.sh"
 run_id_file=".claude/engineering-loop-run-id"
+mode_file=".claude/engineering-loop-mode"
 review_disposition_file=".claude/engineering-loop-review-disposition.json"
 
 current="$("$stop_hook" --fingerprint)"
 loop_run_id=""
+loop_mode="${ENGINEERING_LOOP_MODE:-}"
 iteration="${ENGINEERING_LOOP_ITERATION:-1}"
 note="${ENGINEERING_LOOP_NOTE:-State generated from current hook evidence. Pending means the required runtime evidence is not present yet.}"
 
 if [[ -f "$run_id_file" ]]; then
   loop_run_id="$(cat "$run_id_file")"
 fi
+
+if [[ -z "$loop_mode" && -f "$mode_file" ]]; then
+  loop_mode="$(cat "$mode_file")"
+fi
+
+case "$loop_mode" in
+  analysis|validation|plan|planning) loop_mode="analysis" ;;
+  code|implementation|"") loop_mode="code" ;;
+  *) loop_mode="code" ;;
+esac
 
 has_subagent_for_current() {
   local agent_type="$1"
@@ -65,7 +77,7 @@ requires_security_review() {
   while IFS= read -r raw; do
     path="${raw#?? }"
     case "$path" in
-      .claude/engineering-loop-baseline.sha|.claude/engineering-loop-state.json|.claude/engineering-loop-events.jsonl|.claude/engineering-loop-commands.jsonl|.claude/engineering-loop-edits.jsonl|.claude/engineering-loop-run-id|.claude/engineering-loop-review-disposition.json)
+      .claude/engineering-loop-baseline.sha|.claude/engineering-loop-state.json|.claude/engineering-loop-events.jsonl|.claude/engineering-loop-commands.jsonl|.claude/engineering-loop-edits.jsonl|.claude/engineering-loop-run-id|.claude/engineering-loop-mode|.claude/engineering-loop-review-disposition.json)
         continue
         ;;
     esac
@@ -82,6 +94,7 @@ requires_security_review() {
       ':(exclude).claude/engineering-loop-commands.jsonl' \
       ':(exclude).claude/engineering-loop-edits.jsonl' \
       ':(exclude).claude/engineering-loop-run-id' \
+      ':(exclude).claude/engineering-loop-mode' \
       ':(exclude).claude/engineering-loop-review-disposition.json' 2>/dev/null || true
     git diff --name-only -- . \
       ':(exclude).claude/engineering-loop-baseline.sha' \
@@ -90,6 +103,7 @@ requires_security_review() {
       ':(exclude).claude/engineering-loop-commands.jsonl' \
       ':(exclude).claude/engineering-loop-edits.jsonl' \
       ':(exclude).claude/engineering-loop-run-id' \
+      ':(exclude).claude/engineering-loop-mode' \
       ':(exclude).claude/engineering-loop-review-disposition.json' 2>/dev/null || true
     git ls-files --others --exclude-standard -- . 2>/dev/null || true
   )
@@ -110,6 +124,11 @@ has_passing_test_command() {
 }
 
 required_review_agents_json() {
+  if [[ "$loop_mode" == "analysis" ]]; then
+    printf '%s\n' '["code-reviewer","security-auditor","devops-engineer"]'
+    return
+  fi
+
   if requires_security_review; then
     printf '%s\n' '["code-reviewer","security-auditor","devops-engineer"]'
   else
@@ -159,10 +178,17 @@ step_status() {
 
 explore_status="$(step_status has_subagent_for_run "Explore")"
 architect_status="$(step_status has_subagent_for_run "architect-reviewer")"
-implementation_status="$(step_status has_any_subagent_for_current "python-pro" "backend-developer" "frontend-developer" "fullstack-developer" "devops-engineer")"
-tests_status="$(step_status has_subagent_for_current "test-automator")"
+if [[ "$loop_mode" == "analysis" ]]; then
+  implementation_status="not_applicable"
+  tests_status="not_applicable"
+else
+  implementation_status="$(step_status has_any_subagent_for_current "python-pro" "backend-developer" "frontend-developer" "fullstack-developer" "devops-engineer")"
+  tests_status="$(step_status has_subagent_for_current "test-automator")"
+fi
 code_review_status="$(step_status has_subagent_for_current "code-reviewer")"
-if requires_security_review; then
+if [[ "$loop_mode" == "analysis" ]]; then
+  security_review_status="$(step_status has_subagent_for_current "security-auditor")"
+elif requires_security_review; then
   security_review_status="$(step_status has_subagent_for_current "security-auditor")"
 else
   security_review_status="not_applicable"
@@ -170,7 +196,9 @@ fi
 devops_status="$(step_status has_subagent_for_current "devops-engineer")"
 fixes_status="$(step_status has_valid_review_disposition)"
 
-if has_passing_test_command; then
+if [[ "$loop_mode" == "analysis" ]]; then
+  test_result="not_applicable"
+elif has_passing_test_command; then
   test_result="passed"
 else
   test_result="pending"
@@ -181,6 +209,7 @@ mkdir -p "$(dirname "$state_file")"
 jq -n \
   --arg fingerprint "$current" \
   --arg loop_run_id "$loop_run_id" \
+  --arg mode "$loop_mode" \
   --argjson iteration "$iteration" \
   --arg explore "$explore_status" \
   --arg architect "$architect_status" \
@@ -194,6 +223,7 @@ jq -n \
   --arg note "$note" \
   '{
     loop_run_id: $loop_run_id,
+    mode: $mode,
     change_fingerprint: $fingerprint,
     iteration: $iteration,
     steps: {

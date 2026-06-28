@@ -7,4 +7,5 @@ __pycache__/
 .claude/engineering-loop-events.jsonl
 .claude/engineering-loop-review-disposition.json
 .claude/engineering-loop-run-id
+.claude/engineering-loop-mode
 .claude/engineering-loop-state.json

@@ -1,16 +1,16 @@
 ## Mandatory Engineering Loop
 
-For non-trivial repository changes, do not finish until this loop is complete:
+For non-trivial repository changes, validation tasks, audits, and next-step planning, do not finish until this loop is complete:
 
 Start non-trivial work through `/engineering-loop` when possible. The command uses the `engineering-loop` skill and the same hook evidence that the Stop hook validates.
 
-1. Run `.claude/skills/engineering-loop/scripts/start-engineering-loop.sh` to create the active loop run id.
+1. Run `.claude/skills/engineering-loop/scripts/start-engineering-loop.sh` to create the active loop run id. For validation-only, audit-only, planning, or next-step tasks with no code changes, run `.claude/skills/engineering-loop/scripts/start-engineering-loop.sh --mode analysis`.
 2. Explore the codebase, current behavior, existing tests, and relevant documentation with the exact named subagent `@Explore`.
 3. Use the exact named subagent `@architect-reviewer` before implementation for design, workflow, and tradeoff review.
-4. Before implementation, summarize the architect-reviewer decisions and pass them into the implementation agent prompt.
-5. Use the right exact named implementation agent for the code change. Use `@python-pro` for Python work.
-6. Use the exact named subagent `@test-automator` to add, improve, or run the relevant tests.
-7. After implementation and tests, run independent reviewers in parallel when possible: `@code-reviewer`, `@devops-engineer`, and `@security-auditor` when the change touches `.claude/`, GitHub workflows, shell scripts, Python files, dependency/config files, Docker files, secrets, auth, networking, or other sensitive areas.
+4. Before implementation, summarize the architect-reviewer decisions and pass them into the implementation agent prompt. In analysis mode, include the decisions in the validation findings and next-step plan instead.
+5. Use the right exact named implementation agent for the code change. Use `@python-pro` for Python work. In analysis mode, mark implementation `not_applicable`.
+6. Use the exact named subagent `@test-automator` to add, improve, or run the relevant tests. In analysis mode, mark test changes and test execution `not_applicable` unless the validation task changes files.
+7. After implementation and tests, run independent reviewers in parallel when possible: `@code-reviewer`, `@devops-engineer`, and `@security-auditor` when the change touches `.claude/`, GitHub workflows, shell scripts, Python files, dependency/config files, Docker files, secrets, auth, networking, or other sensitive areas. In analysis mode, run `@code-reviewer`, `@security-auditor`, and `@devops-engineer` against the validation findings and next-step plan.
 8. Run `.claude/skills/engineering-loop/scripts/update-review-disposition-template.sh`, then update `.claude/engineering-loop-review-disposition.json` with every reviewer finding.
 9. Fix any findings, rerun relevant tests, and repeat the review/test loop up to 3 times.
 
@@ -23,6 +23,7 @@ Maintain `.claude/engineering-loop-state.json` during non-trivial repository wor
 ```json
 {
   "loop_run_id": "output stored in .claude/engineering-loop-run-id",
+  "mode": "code or analysis",
   "change_fingerprint": "output of .claude/hooks/engineering-loop-stop.sh --fingerprint",
   "iteration": 1,
   "steps": {
@@ -67,12 +68,13 @@ Maintain `.claude/engineering-loop-review-disposition.json` after reviewer agent
 Runtime evidence is required. Claude Code hooks write proof files automatically:
 
 - `.claude/engineering-loop-run-id` records the active loop run id.
+- `.claude/engineering-loop-mode` records whether the loop is `code` or `analysis`.
 - `.claude/engineering-loop-events.jsonl` records actual `SubagentStop` events.
 - `.claude/engineering-loop-commands.jsonl` records Bash commands and detects test commands.
 - `.claude/engineering-loop-edits.jsonl` records Edit/Write/MultiEdit/NotebookEdit tool usage.
 - `.claude/engineering-loop-review-disposition.json` records how reviewer findings were fixed or accepted.
 
-The Stop hook validates both the state file and the runtime evidence. Early planning evidence must match the active loop run id; implementation, test, review, command, and edit evidence must match the active loop run id and final change fingerprint. Review dispositions must match the active loop run id and final change fingerprint. Do not mark a step complete unless the corresponding agent or test evidence exists, or the step is genuinely `not_applicable`. If code changes after tests run, rerun the relevant tests so the latest passing test is newer than the latest edit.
+The Stop hook validates both the state file and the runtime evidence. Early planning evidence must match the active loop run id; implementation, test, review, command, and edit evidence must match the active loop run id and final change fingerprint. Review dispositions must match the active loop run id and final change fingerprint. Do not mark a step complete unless the corresponding agent or test evidence exists, or the step is genuinely `not_applicable`. In analysis mode, implementation and test execution may be `not_applicable`, but reviewer evidence and review dispositions are still required. If code changes after tests run, rerun the relevant tests so the latest passing test is newer than the latest edit.
 
 Before the final response, run `.claude/hooks/engineering-loop-stop.sh`. If it exits non-zero, fix the missing items reported by `.claude/skills/engineering-loop/scripts/loop-status.sh` before trying to finish.
 

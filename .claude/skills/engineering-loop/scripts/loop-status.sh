@@ -10,10 +10,12 @@ command_log=".claude/engineering-loop-commands.jsonl"
 edit_log=".claude/engineering-loop-edits.jsonl"
 stop_hook=".claude/hooks/engineering-loop-stop.sh"
 run_id_file=".claude/engineering-loop-run-id"
+mode_file=".claude/engineering-loop-mode"
 review_disposition_file=".claude/engineering-loop-review-disposition.json"
 
 current="$("$stop_hook" --fingerprint)"
 loop_run_id=""
+loop_mode="${ENGINEERING_LOOP_MODE:-}"
 quiet=false
 
 if [[ -f "$run_id_file" ]]; then
@@ -23,6 +25,20 @@ fi
 if [[ -z "$loop_run_id" && -f "$state_file" ]]; then
   loop_run_id="$(jq -r '.loop_run_id // empty' "$state_file" 2>/dev/null || true)"
 fi
+
+if [[ -z "$loop_mode" && -f "$mode_file" ]]; then
+  loop_mode="$(cat "$mode_file")"
+fi
+
+if [[ -z "$loop_mode" && -f "$state_file" ]]; then
+  loop_mode="$(jq -r '.mode // empty' "$state_file" 2>/dev/null || true)"
+fi
+
+case "$loop_mode" in
+  analysis|validation|plan|planning) loop_mode="analysis" ;;
+  code|implementation|"") loop_mode="code" ;;
+  *) loop_mode="code" ;;
+esac
 
 if [[ "${1:-}" == "--quiet" ]]; then
   quiet=true
@@ -105,7 +121,7 @@ requires_security_review() {
   while IFS= read -r raw; do
     path="${raw#?? }"
     case "$path" in
-      .claude/engineering-loop-baseline.sha|.claude/engineering-loop-state.json|.claude/engineering-loop-events.jsonl|.claude/engineering-loop-commands.jsonl|.claude/engineering-loop-edits.jsonl|.claude/engineering-loop-run-id|.claude/engineering-loop-review-disposition.json)
+      .claude/engineering-loop-baseline.sha|.claude/engineering-loop-state.json|.claude/engineering-loop-events.jsonl|.claude/engineering-loop-commands.jsonl|.claude/engineering-loop-edits.jsonl|.claude/engineering-loop-run-id|.claude/engineering-loop-mode|.claude/engineering-loop-review-disposition.json)
         continue
         ;;
     esac
@@ -122,6 +138,7 @@ requires_security_review() {
       ':(exclude).claude/engineering-loop-commands.jsonl' \
       ':(exclude).claude/engineering-loop-edits.jsonl' \
       ':(exclude).claude/engineering-loop-run-id' \
+      ':(exclude).claude/engineering-loop-mode' \
       ':(exclude).claude/engineering-loop-review-disposition.json' 2>/dev/null || true
     git diff --name-only -- . \
       ':(exclude).claude/engineering-loop-baseline.sha' \
@@ -130,6 +147,7 @@ requires_security_review() {
       ':(exclude).claude/engineering-loop-commands.jsonl' \
       ':(exclude).claude/engineering-loop-edits.jsonl' \
       ':(exclude).claude/engineering-loop-run-id' \
+      ':(exclude).claude/engineering-loop-mode' \
       ':(exclude).claude/engineering-loop-review-disposition.json' 2>/dev/null || true
     git ls-files --others --exclude-standard -- . 2>/dev/null || true
   )
@@ -137,6 +155,7 @@ requires_security_review() {
 }
 
 tests_not_applicable() {
+  [[ "$loop_mode" == "analysis" ]] && return 0
   [[ -f "$state_file" ]] && jq -e '.tests.status == "not_applicable"' "$state_file" >/dev/null
 }
 
@@ -224,6 +243,11 @@ has_valid_state() {
 }
 
 required_review_agents_json() {
+  if [[ "$loop_mode" == "analysis" ]]; then
+    printf '%s\n' '["code-reviewer","security-auditor","devops-engineer"]'
+    return
+  fi
+
   if requires_security_review; then
     printf '%s\n' '["code-reviewer","security-auditor","devops-engineer"]'
   else
@@ -290,12 +314,16 @@ fi
 if [[ -n "$loop_run_id" ]]; then add_passed "loop run id $loop_run_id"; else add_missing "active loop run id"; fi
 if has_subagent_for_run "Explore"; then add_passed "Explore evidence for loop run"; else add_missing "SubagentStop evidence for Explore in current loop run"; fi
 if has_subagent_for_run "architect-reviewer"; then add_passed "architect-reviewer evidence for loop run"; else add_missing "SubagentStop evidence for architect-reviewer in current loop run"; fi
-if has_any_subagent_for_current "python-pro" "backend-developer" "frontend-developer" "fullstack-developer" "devops-engineer"; then
+if [[ "$loop_mode" == "analysis" ]]; then
+  add_passed "implementation not applicable for analysis mode"
+elif has_any_subagent_for_current "python-pro" "backend-developer" "frontend-developer" "fullstack-developer" "devops-engineer"; then
   add_passed "implementation agent evidence"
 else
   add_missing "SubagentStop evidence for an implementation agent such as python-pro"
 fi
-if has_subagent_for_current "test-automator"; then add_passed "test-automator evidence"; else add_missing "SubagentStop evidence for test-automator"; fi
+if [[ "$loop_mode" == "analysis" ]]; then
+  add_passed "test-automator not applicable for analysis mode"
+elif has_subagent_for_current "test-automator"; then add_passed "test-automator evidence"; else add_missing "SubagentStop evidence for test-automator"; fi
 if has_subagent_for_current "code-reviewer"; then add_passed "code-reviewer evidence"; else add_missing "SubagentStop evidence for code-reviewer"; fi
 if requires_security_review; then
   if has_subagent_for_current "security-auditor"; then
@@ -308,7 +336,9 @@ else
 fi
 if has_subagent_for_current "devops-engineer"; then add_passed "devops-engineer evidence"; else add_missing "SubagentStop evidence for devops-engineer"; fi
 
-if has_passing_test_command; then
+if [[ "$loop_mode" == "analysis" ]]; then
+  add_passed "test command not applicable for analysis mode"
+elif has_passing_test_command; then
   add_passed "passing Bash test command evidence"
 else
   add_missing "passing Bash test command evidence after current changes"

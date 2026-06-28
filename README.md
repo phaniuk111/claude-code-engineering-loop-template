@@ -54,6 +54,12 @@ Then run a task through the project command:
 /engineering-loop Make a harmless smoke-test Python change: add loop_smoke_example.py with add(a: int, b: int) -> int and pytest coverage.
 ```
 
+For validation-only or next-step planning tasks, use analysis mode:
+
+```text
+/engineering-loop Validate this repository and recommend the next steps. Do not change code; use analysis mode.
+```
+
 Claude should run the workflow, update evidence files, and only finish after:
 
 ```bash
@@ -88,6 +94,15 @@ exits successfully.
 | `CLAUDE.md` | Project guidance | Claude | Standing instruction that non-trivial repo work must complete the loop. |
 
 ## How The Loop Works
+
+The loop supports two modes:
+
+- `code` mode for implementation work. This requires implementation, testing,
+  final test command evidence, reviews, dispositions, and Stop-hook validation.
+- `analysis` mode for validation, audit, and next-step planning work. This
+  marks implementation and test execution as `not_applicable`, but still
+  requires Explore, architecture, code review, security review, DevOps review,
+  reviewer dispositions, and Stop-hook validation.
 
 The short version:
 
