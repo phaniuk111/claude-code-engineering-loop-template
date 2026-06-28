@@ -46,6 +46,7 @@ fi
 
 missing=()
 passed=()
+next_actions=()
 
 add_passed() {
   passed+=("$1")
@@ -53,6 +54,10 @@ add_passed() {
 
 add_missing() {
   missing+=("$1")
+}
+
+add_action() {
+  next_actions+=("$1")
 }
 
 has_subagent_for_current() {
@@ -291,50 +296,56 @@ if [[ -f "$state_file" ]]; then
   add_passed "state file exists"
 else
   add_missing "$state_file is missing"
+  add_action "Run .claude/skills/engineering-loop/scripts/update-engineering-loop-state.sh after required agent/review evidence exists."
 fi
 
 if has_valid_state; then
   add_passed "state file matches current fingerprint and required schema"
 else
   add_missing "$state_file must match fingerprint $current and mark required steps complete/not_applicable"
+  add_action "Regenerate state with .claude/skills/engineering-loop/scripts/update-engineering-loop-state.sh, then inspect pending steps."
 fi
 
 if [[ -f "$review_disposition_file" ]]; then
   add_passed "review disposition file exists"
 else
   add_missing "$review_disposition_file is missing"
+  add_action "Run .claude/skills/engineering-loop/scripts/update-review-disposition-template.sh after reviewers run."
 fi
 
 if has_valid_review_disposition; then
   add_passed "review findings have explicit dispositions"
 else
   add_missing "$review_disposition_file must match current run/fingerprint and disposition every required reviewer finding"
+  add_action "Fill .claude/engineering-loop-review-disposition.json with fixed, accepted_risk, or not_applicable plus evidence for every reviewer finding."
 fi
 
-if [[ -n "$loop_run_id" ]]; then add_passed "loop run id $loop_run_id"; else add_missing "active loop run id"; fi
-if has_subagent_for_run "Explore"; then add_passed "Explore evidence for loop run"; else add_missing "SubagentStop evidence for Explore in current loop run"; fi
-if has_subagent_for_run "architect-reviewer"; then add_passed "architect-reviewer evidence for loop run"; else add_missing "SubagentStop evidence for architect-reviewer in current loop run"; fi
+if [[ -n "$loop_run_id" ]]; then add_passed "loop run id $loop_run_id"; else add_missing "active loop run id"; add_action "Start the loop with .claude/skills/engineering-loop/scripts/start-engineering-loop.sh, or use --mode analysis for validation-only work."; fi
+if has_subagent_for_run "Explore"; then add_passed "Explore evidence for loop run"; else add_missing "SubagentStop evidence for Explore in current loop run"; add_action "Run @Explore for the current task."; fi
+if has_subagent_for_run "architect-reviewer"; then add_passed "architect-reviewer evidence for loop run"; else add_missing "SubagentStop evidence for architect-reviewer in current loop run"; add_action "Run @architect-reviewer and carry its decisions into the next stage."; fi
 if [[ "$loop_mode" == "analysis" ]]; then
   add_passed "implementation not applicable for analysis mode"
 elif has_any_subagent_for_current "python-pro" "backend-developer" "frontend-developer" "fullstack-developer" "devops-engineer"; then
   add_passed "implementation agent evidence"
 else
   add_missing "SubagentStop evidence for an implementation agent such as python-pro"
+  add_action "Run the appropriate implementation subagent, usually @python-pro for Python work."
 fi
 if [[ "$loop_mode" == "analysis" ]]; then
   add_passed "test-automator not applicable for analysis mode"
-elif has_subagent_for_current "test-automator"; then add_passed "test-automator evidence"; else add_missing "SubagentStop evidence for test-automator"; fi
-if has_subagent_for_current "code-reviewer"; then add_passed "code-reviewer evidence"; else add_missing "SubagentStop evidence for code-reviewer"; fi
+elif has_subagent_for_current "test-automator"; then add_passed "test-automator evidence"; else add_missing "SubagentStop evidence for test-automator"; add_action "Run @test-automator before the final test command."; fi
+if has_subagent_for_current "code-reviewer"; then add_passed "code-reviewer evidence"; else add_missing "SubagentStop evidence for code-reviewer"; add_action "Run @code-reviewer against the final diff or analysis findings."; fi
 if requires_security_review; then
   if has_subagent_for_current "security-auditor"; then
     add_passed "security-auditor evidence"
   else
     add_missing "SubagentStop evidence for security-auditor"
+    add_action "Run @security-auditor because this task touches sensitive paths or analysis mode requires it."
   fi
 else
   add_passed "security review not applicable for current changed paths"
 fi
-if has_subagent_for_current "devops-engineer"; then add_passed "devops-engineer evidence"; else add_missing "SubagentStop evidence for devops-engineer"; fi
+if has_subagent_for_current "devops-engineer"; then add_passed "devops-engineer evidence"; else add_missing "SubagentStop evidence for devops-engineer"; add_action "Run @devops-engineer for CI/CD, deployability, and operations review."; fi
 
 if [[ "$loop_mode" == "analysis" ]]; then
   add_passed "test command not applicable for analysis mode"
@@ -342,12 +353,14 @@ elif has_passing_test_command; then
   add_passed "passing Bash test command evidence"
 else
   add_missing "passing Bash test command evidence after current changes"
+  add_action "Run the relevant test command after the final edit, for example python -m pytest or uv run pytest."
 fi
 
 if has_test_after_latest_edit; then
   add_passed "latest passing test is newer than latest edit, or no edit log exists"
 else
   add_missing "rerun relevant tests after the latest edit"
+  add_action "Rerun tests because files changed after the last passing test command."
 fi
 
 if [[ "$quiet" == false ]]; then
@@ -368,6 +381,14 @@ if [[ "$quiet" == false ]]; then
     echo "- none"
   else
     printf -- '- %s\n' "${missing[@]}"
+  fi
+  echo
+
+  echo "Next actions:"
+  if [[ "${#next_actions[@]}" -eq 0 ]]; then
+    echo "- none"
+  else
+    printf '%s\n' "${next_actions[@]}" | awk '!seen[$0]++ { print "- " $0 }'
   fi
 fi
 

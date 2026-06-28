@@ -36,6 +36,14 @@ This template addresses those gaps with:
 
 ## Quick Start
 
+Install into another repository:
+
+```bash
+git clone https://github.com/phaniuk111/claude-code-engineering-loop-template.git
+cd claude-code-engineering-loop-template
+./install.sh /path/to/target-repo
+```
+
 Start Claude Code in the repo:
 
 ```bash
@@ -51,13 +59,13 @@ claude --dangerously-skip-permissions
 Then run a task through the project command:
 
 ```text
-/engineering-loop Make a harmless smoke-test Python change: add loop_smoke_example.py with add(a: int, b: int) -> int and pytest coverage.
+/engineering-loop --mode code Make a harmless smoke-test Python change: add loop_smoke_example.py with add(a: int, b: int) -> int and pytest coverage.
 ```
 
 For validation-only or next-step planning tasks, use analysis mode:
 
 ```text
-/engineering-loop Validate this repository and recommend the next steps. Do not change code; use analysis mode.
+/engineering-loop --mode analysis Validate this repository and recommend the next steps. Do not change code.
 ```
 
 Claude should run the workflow, update evidence files, and only finish after:
@@ -242,6 +250,16 @@ workflow to have helper commands.
 ## Validating The Setup
 
 Run:
+
+```bash
+.claude/skills/engineering-loop/scripts/doctor.sh
+```
+
+The doctor checks that required files exist, shell scripts parse, scripts are
+executable, JSON config parses, and local runtime evidence files are ignored by
+git.
+
+For lower-level checks, run:
 
 ```bash
 find .claude/hooks .claude/skills/engineering-loop/scripts -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n

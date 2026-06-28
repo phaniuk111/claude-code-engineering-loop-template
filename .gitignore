@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+.claude/settings.local.json
 .claude/engineering-loop-baseline.sha
 .claude/engineering-loop-commands.jsonl
 .claude/engineering-loop-edits.jsonl
