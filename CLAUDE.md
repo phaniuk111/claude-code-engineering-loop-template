@@ -69,7 +69,8 @@ Runtime evidence is required. Claude Code hooks write proof files automatically:
 
 - `.claude/engineering-loop-run-id` records the active loop run id.
 - `.claude/engineering-loop-mode` records whether the loop is `code` or `analysis`.
-- `.claude/engineering-loop-events.jsonl` records actual `SubagentStop` events.
+- `.claude/engineering-loop-events.jsonl` records actual `SubagentStart` and `SubagentStop` events.
+- Treat `SubagentStart` as traceability only. Treat `SubagentStop` as completion evidence.
 - `.claude/engineering-loop-commands.jsonl` records Bash commands and detects test commands.
 - `.claude/engineering-loop-edits.jsonl` records Edit/Write/MultiEdit/NotebookEdit tool usage.
 - `.claude/engineering-loop-review-disposition.json` records how reviewer findings were fixed or accepted.

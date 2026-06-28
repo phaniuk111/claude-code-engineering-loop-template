@@ -89,6 +89,7 @@ exits successfully.
 | `.claude/hooks/remind-engineering-loop.sh` | Real Claude Code hook | `UserPromptSubmit` | Reminds Claude to use the loop for non-trivial work. |
 | `.claude/hooks/pre-tool-use/block-dangerous-commands.sh` | Real Claude Code hook | `PreToolUse` for Bash | Blocks dangerous shell commands. |
 | `.claude/hooks/pre-tool-use/protect-sensitive-files.sh` | Real Claude Code hook | `PreToolUse` for Read/Edit/Write/MultiEdit | Protects secrets and protected loop files while allowing review disposition edits. |
+| `.claude/hooks/log-subagent-start.sh` | Real Claude Code hook | `SubagentStart` | Records when a subagent is spawned. Useful for traceability, not completion proof. |
 | `.claude/hooks/log-subagent-stop.sh` | Real Claude Code hook | `SubagentStop` | Records which subagent actually ran, with run id and fingerprint. |
 | `.claude/hooks/log-bash-tool.sh` | Real Claude Code hook | `PostToolUse` and `PostToolUseFailure` for Bash | Records commands and detects test commands. |
 | `.claude/hooks/log-edit-tool.sh` | Real Claude Code hook | `PostToolUse` and `PostToolUseFailure` for edits | Records edit/write evidence and timestamps. |
@@ -150,9 +151,13 @@ sequenceDiagram
     Claude->>Skill: Load workflow instructions
     Skill->>Evidence: start-engineering-loop.sh creates run id
     Skill->>Evidence: loop-status.sh shows missing evidence
+    Claude->>Hooks: SubagentStart event for Explore
+    Hooks->>Evidence: Log subagent start
     Claude->>Explore: Inspect repo and task context
     Explore-->>Hooks: SubagentStop event
     Hooks->>Evidence: Log Explore evidence
+    Claude->>Hooks: SubagentStart event for architect-reviewer
+    Hooks->>Evidence: Log subagent start
     Claude->>Arch: Review design and approach
     Arch-->>Hooks: SubagentStop event
     Hooks->>Evidence: Log architecture evidence
@@ -160,14 +165,19 @@ sequenceDiagram
     Claude->>Coder: Implement using architecture guidance
     Coder-->>Hooks: Edit/Write events
     Hooks->>Evidence: Log edit evidence
+    Claude->>Hooks: SubagentStart event for test-automator
+    Hooks->>Evidence: Log subagent start
     Claude->>Tester: Design or update tests
     Tester-->>Hooks: SubagentStop event
     Hooks->>Evidence: Log test-agent evidence
     Claude->>Hooks: Run test command with Bash
     Hooks->>Evidence: Log passing test command
     par Independent final reviews
+        Claude->>Hooks: SubagentStart event for code-reviewer
         Claude->>Reviewers: code-reviewer
+        Claude->>Hooks: SubagentStart event for security-auditor
         Claude->>Reviewers: security-auditor
+        Claude->>Hooks: SubagentStart event for devops-engineer
         Claude->>Reviewers: devops-engineer
     end
     Reviewers-->>Hooks: SubagentStop events
@@ -185,6 +195,11 @@ sequenceDiagram
         Claude->>Skill: Continue loop
     end
 ```
+
+The loop logs both `SubagentStart` and `SubagentStop`. Start events are useful
+for debugging orchestration because they show which agents Claude attempted to
+spawn. Stop events remain the enforcement evidence because they prove the
+subagent finished and returned control.
 
 The Stop hook validates that:
 
