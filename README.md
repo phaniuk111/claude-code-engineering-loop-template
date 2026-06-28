@@ -108,6 +108,61 @@ The short version:
   -> Stop hook validates before final answer
 ```
 
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant Claude as Main Claude
+    participant Skill as engineering-loop skill
+    participant Hooks as Claude Code hooks
+    participant Explore as Explore agent
+    participant Arch as architect-reviewer
+    participant Coder as implementation agent
+    participant Tester as test-automator
+    participant Reviewers as reviewers
+    participant Evidence as evidence files
+    participant Stop as Stop hook
+
+    User->>Claude: /engineering-loop task
+    Claude->>Skill: Load workflow instructions
+    Skill->>Evidence: start-engineering-loop.sh creates run id
+    Skill->>Evidence: loop-status.sh shows missing evidence
+    Claude->>Explore: Inspect repo and task context
+    Explore-->>Hooks: SubagentStop event
+    Hooks->>Evidence: Log Explore evidence
+    Claude->>Arch: Review design and approach
+    Arch-->>Hooks: SubagentStop event
+    Hooks->>Evidence: Log architecture evidence
+    Arch-->>Claude: Architecture decisions and constraints
+    Claude->>Coder: Implement using architecture guidance
+    Coder-->>Hooks: Edit/Write events
+    Hooks->>Evidence: Log edit evidence
+    Claude->>Tester: Design or update tests
+    Tester-->>Hooks: SubagentStop event
+    Hooks->>Evidence: Log test-agent evidence
+    Claude->>Hooks: Run test command with Bash
+    Hooks->>Evidence: Log passing test command
+    par Independent final reviews
+        Claude->>Reviewers: code-reviewer
+        Claude->>Reviewers: security-auditor
+        Claude->>Reviewers: devops-engineer
+    end
+    Reviewers-->>Hooks: SubagentStop events
+    Hooks->>Evidence: Log reviewer evidence
+    Claude->>Evidence: Fill review disposition
+    Claude->>Evidence: update-engineering-loop-state.sh
+    Claude->>Evidence: loop-status.sh
+    Claude->>Stop: Tries to finish turn
+    Stop->>Evidence: Validate run id, agents, tests, edits, dispositions, fingerprint
+    alt Evidence complete
+        Stop-->>Claude: exit 0
+        Claude-->>User: Final answer
+    else Evidence incomplete
+        Stop-->>Claude: exit 2 with missing checklist
+        Claude->>Skill: Continue loop
+    end
+```
+
 The Stop hook validates that:
 
 - `@Explore` and `@architect-reviewer` ran in the active loop run.
